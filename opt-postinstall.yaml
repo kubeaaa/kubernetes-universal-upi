@@ -1,0 +1,22 @@
+---
+- name: UPI Platform Readiness Check
+  tags: upi-provisioning-ready
+  hosts: localhost:cp:compute
+  any_errors_fatal: true
+  gather_facts: false
+  environment: "{{ proxy_env }}"
+  tasks:
+    # Wait 300 seconds, but only start checking after 5 seconds
+    - name: Wait 600 seconds for hosts to be reachable
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 600
+
+- name: UPI Post-install
+  tags: upi-provisioning-postinstall
+  hosts: cp:compute
+  gather_facts: true
+  environment: "{{ proxy_env }}"
+  tasks:
+    - include_role:
+        name: "upi_postinstall"

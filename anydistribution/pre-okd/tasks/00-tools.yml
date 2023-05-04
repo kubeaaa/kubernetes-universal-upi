@@ -1,0 +1,32 @@
+- name: Check if tools exist
+  ansible.builtin.shell: |
+    oc version
+    openshift-install version
+  ignore_errors: true
+  no_log: True
+  register: openshift_tools_result
+
+- block:
+  - name: Download tools with check (sha256)
+    ansible.builtin.get_url:
+      url: "{{ item.value['baseurl'] + item.value['artifact'] }}"
+      dest: "/tmp/{{ item.value['artifact'] }}"
+      checksum: "sha256:{{ item.value['sha256'] }}"
+    with_items: "{{ openshift_tools | dict2items }}"
+
+  - name: Unarchive artifacts
+    ansible.builtin.unarchive:
+      creates: "~/.local/bin/{{ item.value['bin'] }}"
+      src: "/tmp/{{ item.value['artifact'] }}"
+      include: "{{ item.value['bin'] }}"
+      mode: "750"
+      dest: "~/.local/bin/"
+      remote_src: yes
+    with_items: "{{ openshift_tools | dict2items }}"
+
+  - name: Delete artifacts
+    ansible.builtin.file:
+      path: "/tmp/{{ item.value['artifact'] }}"
+      state: absent
+    with_items: "{{ openshift_tools | dict2items }}"
+  when: openshift_tools_result.rc != 0

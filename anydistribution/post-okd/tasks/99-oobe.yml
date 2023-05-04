@@ -1,0 +1,21 @@
+- name: Run out-of-box message
+  environment:
+    KUBECONFIG: "installer/auth/kubeconfig"
+  ansible.builtin.shell: |
+    #!/bin/bash
+    echo -e "INFO Install complete!"
+    echo -e "INFO To access the cluster as the '$(oc whoami)' user when using 'oc', run 'export KUBECONFIG=${KUBECONFIG}'"
+    echo -e "INFO Access the OpenShift web-console here: $(oc whoami --show-console)"
+    echo -e "INFO Login to the console with user: 'kubeadmin', and password: '$(cat installer/auth/kubeadmin-password)'"
+    exit 0
+  args:
+    executable: /bin/bash
+  register: openshift_postinstall
+
+- debug:
+    msg: "{{ openshift_postinstall.stdout }}"
+  when: openshift_postinstall.stdout | length > 0
+
+- debug:
+    msg: "{{ openshift_postinstall.stderr }}"
+  when: openshift_postinstall.stderr | length > 0

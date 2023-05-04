@@ -1,0 +1,5 @@
+env:
+  - name: KUBERNETES_SERVICE_HOST
+    value: "api.{{ k8s_dns_zone[:-1] }}"
+  - name: KUBERNETES_SERVICE_PORT
+    value: "6443"

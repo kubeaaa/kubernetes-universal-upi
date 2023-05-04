@@ -1,0 +1,34 @@
+---
+tf_workspace: "{{ inventory_dir | basename }}"
+tf_vars:
+  # 00
+  proxy_env: "{{ proxy_env }}"
+  # 20
+  openstack_address: "{{ openstack_address }}"
+  openstack_region: "{{ openstack_region }}"
+  openstack_tenant_id: "{{ openstack_tenant_id }}"
+  # 21
+  k8s_cluster_initialized: false
+  k8s_distribution: "{{ distribution }}"
+  k8s_dns_zone: "{{ k8s_dns_zone }}"
+  k8s_dns_domains: "{{ k8s_dns_domains }}"
+  k8s_dns_servers: "{{ k8s_dns_servers }}"
+  k8s_ntp_servers: "{{ k8s_ntp_servers }}"
+  k8s_custom_ca_anchors: "{{ k8s_custom_ca_anchors }}"
+  k8s_custom_registries: "{{ k8s_custom_registries }}"
+  k8s_network_networks: "{{ k8s_network_networks }}"
+  k8s_network_subnets_binding: "{{ k8s_network_subnets_binding }}"
+  k8s_network_loadbalancers: "{{ k8s_network_loadbalancers }}"
+  k8s_network_secgroups_rulesets: "{{ k8s_network_secgroups_rulesets }}"
+  # 30
+  vault_kv_subpath: "{{ vault_kv_subpath }}"
+  vault_address: "{{ vault_address }}"
+  vault_kv: "{{ vault_kv }}"
+  # 40
+  s3_endpoint: "{{ s3_endpoint }}"
+  s3_bucket: "{{ s3_bucket }}"
+  s3_access_key: "{{ s3_access_key }}"
+  s3_secret_key: "{{ s3_secret_key }}"
+  # Pass ansible inventories
+  k8s_hosts_json: "{{ hostvars | hostvars_to_tf | to_json }}"
+  k8s_groups_json: "{{ groups | to_json }}"

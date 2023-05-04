@@ -1,0 +1,22 @@
+- name: Start bootstrap-complete loop
+  ansible.builtin.shell:
+    cmd: "openshift-install --dir=installer/ wait-for bootstrap-complete"
+  async: 1200
+  poll: 0
+  register: openshift_install
+
+- name: Wait 20 minutes for bootstrap-complete
+  async_status:
+    jid: "{{ openshift_install.ansible_job_id }}"
+  register: openshift_install_result
+  until: openshift_install_result.finished
+  retries: 600
+  delay: 2
+
+- debug:
+    msg: "{{ openshift_install_result.stdout }}"
+  when: openshift_install_result.stdout | length > 0
+
+- debug:
+    msg: "{{ openshift_install_result.stderr }}"
+  when: openshift_install_result.stderr | length > 0

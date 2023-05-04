@@ -1,0 +1,65 @@
+---
+- name: Waiting for cluster to report desired version of OpenShift has been installed
+  environment:
+    KUBECONFIG: "installer/auth/kubeconfig"
+  ansible.builtin.shell: |
+    #!/bin/bash
+
+    # Nikita ROUSSEAU
+    # SPDX-License-Identifier: Apache-2.0
+
+    set -o errexit
+    set -o pipefail
+    set -o nounset
+
+    openshift_version="{{ os_version }}"
+
+    has_desired_openshift_version() {
+      status="$(kubectl get clusterversion version --output="jsonpath={range .status.conditions[?(.type == \"Available\")]}{.type}={.status};{end} {range .status.conditions[?(.type == \"Failing\")]}{.type}={.status};{end} {range .status.conditions[?(.type == \"Progressing\")]}{.type}={.status};{end}" 2> /dev/null)"
+      desired_state="Available=True; Failing=False; Progressing=False;"
+      test "${status}" = "${desired_state}"
+    }
+
+    all_operators_are_happy() {
+      desired_state="Available=True; Progressing=False; Degraded=False;"
+      not_happy="$(kubectl get clusteroperators --output="jsonpath={range .items[*]}{.metadata.name}: {range .status.conditions[?(.type ==\"Available\")]}{.type}={.status}{end}; {range .status.conditions[?(.type ==\"Progressing\")]}{.type}={.status}{end}; {range .status.conditions[?(.type ==\"Degraded\")]}{.type}={.status}{end};{\"\n\"}{end}" 2> /dev/null| grep -v -c "${desired_state}")"
+      test "${not_happy}" -eq 0
+    }
+
+    echo "INFO: waiting for cluster to report desired version of OpenShift has been installed..."
+    echo ""
+
+    until has_desired_openshift_version ; do sleep 0.5 ; done
+    until all_operators_are_happy ; do sleep 0.5 ; done
+
+    reported_openshift_version="$(kubectl get clusterversion version --output="jsonpath={.status.history[0].version}")"
+
+    if ! [ "${reported_openshift_version}" = "${openshift_version}" ] ; then
+      echo "ERROR: version mismatch ${reported_openshift_version} (reported) is not the same as ${openshift_version} (requested)"
+      exit 2
+    fi
+
+    echo "INFO: Cluster Version"
+    kubectl get clusterversion
+    echo ""
+
+    echo "INFO: Nodes"
+    kubectl get nodes
+    echo ""
+
+    echo "INFO: ClusterOperators"
+    kubectl get clusteroperators
+    echo ""
+
+    echo "INFO: CSR"
+    kubectl get csr
+    echo ""
+
+    exit 0
+  args:
+    executable: /bin/bash
+  register: openshift_checkup
+
+- debug:
+    msg: "{{ openshift_checkup.stdout }}"
+  when: openshift_checkup.stdout | length > 0

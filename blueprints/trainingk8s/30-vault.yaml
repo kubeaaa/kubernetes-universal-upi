@@ -1,0 +1,14 @@
+all:
+  hosts:
+    localhost:
+      ##################################################################################################################(
+      # Vault Configuration
+      ##################################################################################################################(
+      # vault subpath in kv store
+      vault_kv_subpath: ""
+
+      # vault endpoint
+      vault_address: ""
+
+      # vault key value store
+      vault_kv: "secret"

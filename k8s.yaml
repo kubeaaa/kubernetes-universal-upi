@@ -1,0 +1,28 @@
+---
+- name: K8S Distribution Pre-Deployment
+  tags: pre-dist-k8s
+  hosts: all
+  gather_facts: false
+  environment: "{{ proxy_env }}"
+  tasks:
+    - include_role:
+        name: "pre-{{ distribution }}"
+
+- name: UPI Platform Provisioning
+  tags: upi-provisioning-tf
+  hosts: localhost
+  gather_facts: false
+  environment: "{{ proxy_env }}"
+  tasks:
+    # Terraform Provisioning
+    - import_role:
+        name: upi_provisioning
+
+- name: K8S Distribution Post-Deployment
+  tags: post-dist-k8s
+  hosts: all
+  gather_facts: false
+  environment: "{{ proxy_env }}"
+  tasks:
+    - include_role:
+        name: "post-{{ distribution }}"

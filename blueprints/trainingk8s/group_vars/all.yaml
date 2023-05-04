@@ -1,0 +1,10 @@
+# K8S Deployment Setup
+platform: openstack
+distribution: okd
+proxy_env:
+  https_proxy:  ""
+  all_proxy:    ""
+  http_proxy:   ""
+  HTTP_PROXY:   ""
+  HTTPS_PROXY:  ""
+  no_proxy:     "127.0.0.1,0.0.0.0,localhost"

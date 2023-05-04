@@ -1,0 +1,7 @@
+ansible==6.5.0
+requests==2.28.1
+netaddr==0.8.0
+dnspython==2.2.1
+kubernetes==25.3.0
+PyYAML==6.0
+jsonpatch==1.32

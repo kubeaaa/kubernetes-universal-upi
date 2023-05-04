@@ -1,0 +1,56 @@
+---
+# https://github.com/okd-project/okd/issues/963
+- name: Run patch script
+  environment:
+    KUBECONFIG: "installer/auth/kubeconfig"
+  ansible.builtin.shell: |
+    #!/bin/bash
+    # Fetch machine-config operator states (DEGRADED field)
+    MASTER_STATE=$(oc get mcp | grep "master" | awk '{ print $4 }')
+    WORKER_STATE=$(oc get mcp | grep "worker" | awk '{ print $4 }')
+    
+    # Identify the missing machine config
+    MISSING="$(oc get co machine-config -ojson | jq -r .status.extension.master | perl -ple 's/^.*(rendered-master-[0-9a-f]+).*$/$1/')"
+    # Identify the existing machine config
+    EXISTING="$(oc get mc -ojson | jq -r '[.items[] | select(.metadata.name | test("rendered-master")).metadata.name][0]')"
+    
+    # Check that we have a missing cm 
+    if oc get machineconfigs.machineconfiguration.openshift.io $MISSING ; then
+      echo "[INFO] mc/$MISSING already exists."
+      exit 0
+    fi
+    
+    # Check operator degraded state
+    if [[ "${MASTER_STATE}" == "True" || "${WORKER_STATE}" == "True" ]]
+    then
+      echo "[WARN] machine-config operator is not healthy."
+    
+      if [[ -z ${MISSING} ]]; then
+        echo "[ERR] undefined 'missing' crd (machineconfig.machineconfiguration.openshift.io)."
+        exit 1
+      fi
+    
+      # Copy the existing to the missing
+      oc get mc $EXISTING -o yaml | sed "s/name: $EXISTING/name: $MISSING/" | oc create -f-
+      # Wait for cluster operator machine-config
+      oc wait --for condition=degraded=false --timeout=120s co machine-config || exit 1
+      # Delete the missing maching-config
+      oc delete mc $MISSING
+    
+      # Delete additional ressources
+      oc delete mc 99-master-okd-extensions 99-okd-master-disable-mitigations || true
+    fi
+    
+    echo "[INFO] machine-config operator is healthy."
+    exit 0
+  args:
+    executable: /bin/bash
+  register: openshift_postinstall_mco_patch
+
+- debug:
+    msg: "{{ openshift_postinstall_mco_patch.stdout }}"
+  when: openshift_postinstall_mco_patch.stdout | length > 0
+
+- debug:
+    msg: "{{ openshift_postinstall_mco_patch.stderr }}"
+  when: openshift_postinstall_mco_patch.stderr | length > 0

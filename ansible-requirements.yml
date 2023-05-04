@@ -1,0 +1,4 @@
+collections:
+  # https://galaxy.ansible.com/community/general
+  - name: community.general
+    version: 6.0.1

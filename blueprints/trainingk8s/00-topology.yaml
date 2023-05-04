@@ -1,0 +1,55 @@
+# K8S Cluster Topology
+all:
+  children:
+    k8s:
+      children:
+        # Bootstrap node
+        bootstrap:
+          hosts:
+            bootstrap.k8s.localdomain:
+          vars:
+            flavor: "m1.xlarge"
+            image_name: "fcos"
+            security_groups: ["default-K8S"]
+            networks: ["PFS-OPK-MGT"]
+            storage: []
+        # Control Plane - Master
+        cp:
+          hosts:
+            mst1.k8s.localdomain:
+              flavor: "hp-big4.master.k8s.impair"
+            mst2.k8s.localdomain:
+            mst3.k8s.localdomain:
+              flavor: "hp-big4.master.k8s.impair"
+          vars:
+            flavor: "hp-big4.master.k8s.pair"
+            image_name: "fcos"
+            security_groups: ["default-K8S", "CP-SECGROUP"]
+            networks: ["PFS-OPK-MGT"]
+            storage:
+            - name: "var"
+              mountpoint: "/var"
+              size: 100
+        # Compute - Workers
+        compute:
+          hosts:
+            wrk1.k8s.localdomain:
+              flavor: "hp.worker.k8s.impair"
+            wrk2.k8s.localdomain:
+            wrk3.k8s.localdomain:
+              flavor: "hp.worker.k8s.impair"
+            wrk4.k8s.localdomain:
+            wrk5.k8s.localdomain:
+              flavor: "hp.worker.k8s.impair"
+          vars:
+            flavor: "hp.worker.k8s.pair"
+            image_name: "fcos"
+            security_groups: ["default-K8S", "COMPUTE-SECGROUP"]
+            networks: ["PFS-OPK-MGT"]
+            storage:
+            - name: "var"
+              mountpoint: "/var"
+              size: 100
+            - name: "data"
+              mountpoint: "/var/data"
+              size: 50

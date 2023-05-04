@@ -1,0 +1,6 @@
+---
+- name: Vault Connectivity Check
+  include_tasks: 00-vault.yml
+
+- name: Provisioning Strategy Selection
+  include_tasks: 10-goal.yml

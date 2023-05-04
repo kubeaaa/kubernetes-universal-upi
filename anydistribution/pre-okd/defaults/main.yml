@@ -1,0 +1,12 @@
+---
+openshift_tools:
+  openshift_install:
+    baseurl: "https://github.com/okd-project/okd/releases/download/{{ os_version }}/"
+    artifact: "openshift-install-linux-{{ os_version }}.tar.gz"
+    bin: openshift-install
+    sha256: "{{ openshift_install_sha256 }}"
+  openshift_client:
+    baseurl: "https://github.com/okd-project/okd/releases/download/{{ os_version }}/"
+    artifact: "openshift-client-linux-{{ os_version }}.tar.gz"
+    bin: oc
+    sha256: "{{ openshift_client_sha256 }}"

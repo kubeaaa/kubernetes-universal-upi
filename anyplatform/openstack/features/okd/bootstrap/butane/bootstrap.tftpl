@@ -1,0 +1,164 @@
+---
+variant: fcos
+version: 1.4.0
+ignition:
+  config:
+    merge:
+      - source: ${bootstrap_ignition_public_url}
+kernel_arguments:
+  should_exist:
+    - ipv6.disable=1
+    - audit=0
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: ${host}
+
+    - path: /etc/systemd/resolved.conf.d/dns_servers.conf
+      overwrite: true
+      mode: 0644
+      contents:
+        inline: |
+          [Resolve]
+          DNS=%{ for ns in dns ~}${ns} %{ endfor ~}
+
+          Domains=%{ for domain in domains ~}${domain} %{ endfor ~}
+
+    - path: /etc/systemd/resolved.conf.d/50-no-dns-stub.conf
+      contents:
+        inline: |
+          [Resolve]
+          DNSStubListener=no
+
+    - path: /etc/NetworkManager/conf.d/10-dns-resolved.conf
+      contents:
+        inline: |
+          # See "man 5 NetworkManager.conf" for details.
+          #
+          [main]
+          dns=none
+          rc-manager=unmanaged
+          systemd-resolved=false
+
+    %{ for ca,source in ca_anchors }
+    - path: /etc/pki/ca-trust/source/anchors/${ca}
+      mode: 0444
+      contents:
+        source: ${source}
+    %{ endfor }
+
+    - path: /etc/containerd/config.toml
+      overwrite: true
+      mode: 0644
+      contents:
+        inline: |
+          version = 2
+
+          [plugins]
+            [plugins."io.containerd.grpc.v1.cri"]
+              [plugins."io.containerd.grpc.v1.cri".cni]
+                bin_dir = "/usr/libexec/cni/"
+                conf_dir = "/etc/cni/net.d"
+            [plugins."io.containerd.internal.v1.opt"]
+              path = "/var/lib/containerd/opt"
+            [plugins."io.containerd.grpc.v1.cri".registry]
+              config_path = "/etc/containerd/certs.d"
+
+    %{ for ns,registry in image_mirrors }
+    - path: /etc/containerd/certs.d/${ns}/hosts.toml
+      mode: 0644
+      contents:
+        inline: |
+          %{ for host in registry.hosts }
+          [host."${host}"]
+            capabilities = [%{ for capability in registry.capabilities }"${capability}", %{ endfor }]
+            ca = ${registry.ca}
+            skip_verify = ${registry.skip_verify}
+          %{ endfor }
+    %{ endfor }
+
+    %{ for ns,registry in image_mirrors }
+    - path: /etc/containers/registries.conf.d/${ns}.conf
+      mode: 0644
+      contents:
+        inline: |
+          [[registry]]
+          prefix = "${ns}/"
+          insecure=${ registry.skip_verify }
+          blocked = false
+          location="${ns}"
+
+          %{ for host in registry.hosts }
+          [[registry.mirror]]
+          location="${ element(flatten(regexall("^(http.?\\:\\/{2})(\\w.*)$", host)), 1) }"
+          insecure=${ registry.skip_verify }
+          %{ endfor }
+    %{ endfor }
+
+    - path: /etc/chrony.conf
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: |
+          %{ for ntp_server in ntp_pool ~}server ${ntp_server} iburst
+          %{ endfor }
+          driftfile /var/lib/chrony/drift
+          makestep 1.0 3
+          rtcsync
+          keyfile /etc/chrony.keys
+          ntsdumpdir /var/lib/chrony
+          leapsectz right/UTC
+          logdir /var/log/chrony
+
+    - path: /etc/sysctl.d/98-ipv6.conf
+      contents:
+        inline: |
+          # Disable for all interfaces
+          net.ipv6.conf.all.disable_ipv6=1
+          net.ipv6.conf.default.disable_ipv6=1
+          # The protocol must be disabled all specific interfaces as well.
+          net.ipv6.conf.lo.disable_ipv6=1
+
+    - path: /usr/local/bin/no-ipv6.sh
+      mode: 0774
+      contents:
+        inline: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # Disable IPv6 on all specific interfaces as well.
+          for con in $(nmcli -t -f UUID con); do
+              nmcli connection modify $con ipv6.method "disabled"
+              nmcli connection down $con
+              nmcli connection up $con
+          done
+
+  links:
+    - path: /etc/localtime
+      target: ../usr/share/zoneinfo/Europe/Paris
+    - path: /etc/resolv.conf
+      target: /run/systemd/resolve/resolv.conf
+      overwrite: true
+
+systemd:
+  units:
+    - name: no-ipv6.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Disable IPv6 stack on all connections
+        Wants=network-online.target
+        After=network-online.target
+
+        [Service]
+        Type=simple
+        RemainAfterExit=yes
+
+        ExecStart=/usr/local/bin/no-ipv6.sh
+
+        Restart=on-failure
+        RestartSec=10
+
+        [Install]
+        WantedBy=multi-user.target

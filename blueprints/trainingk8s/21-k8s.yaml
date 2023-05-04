@@ -1,0 +1,254 @@
+all:
+  hosts:
+    localhost:
+      ##################################################################################################################(
+      # K8S Configuration
+      ##################################################################################################################(
+
+      # DNS zone of the tenant
+      # <cluster_name>.<base_domain>.
+      k8s_dns_zone: "trainingk8s.k8s.localdomain."
+
+      # SystemD Domains directive
+      # https://www.freedesktop.org/software/systemd/man/resolved.conf.html#Domains=
+      k8s_dns_domains:
+        - "trainingk8s.k8s.localdomain"
+
+      # SystemD DNS directive
+      # https://www.freedesktop.org/software/systemd/man/resolved.conf.html#DNS=
+      k8s_dns_servers: []
+
+      # NTP pool
+      k8s_ntp_servers: []
+
+      # Custom certificate authorities
+      k8s_custom_ca_anchors: []
+
+      # Custom containerd registries
+      # https://github.com/containerd/containerd/blob/main/docs/hosts.md
+      k8s_custom_registries:
+        - namespace: "quay.io"
+          hosts: ["https://quay.io"]
+          capabilities: ["pull", "resolve"]
+          ca: "/etc/pki/tls/certs/ca-bundle.crt"
+          skip_verify: false
+
+      # https://registry.terraform.io/providers/terraform-provider-openstack/openstack/latest/docs/resources/networking_network_v2
+      k8s_network_networks:
+        PFS-OPK-MGT: {}
+        PFS-OPK-VIP: {}
+
+      # Subnets spec for the tenant
+      k8s_network_subnets_binding:
+        PFS-OPK-MGT:
+        - name: "PFS-OPK-MGT-SUBNET"
+        PFS-OPK-VIP:
+        - name: "PFS-OPK-VIP-SUBNET"
+
+      # K8S Load Balancers
+      k8s_network_loadbalancers:
+        # A DNS A/AAAA or CNAME record, and a DNS PTR record, to identify the API load balancer.
+        # These records must be resolvable by both clients external to the cluster and from all the nodes within the cluster.
+        - name: "apiserver"
+          description: "Kubernetes API load balancer. Provides a common endpoint for users, both human and machine, to interact with and configure the platform."
+          dns: "api.k8s.localdomain."
+          subnet: "PFS-OPK-MGT-SUBNET"
+          pools:
+            - name: "controlplane-apiserver"
+              protocol: "HTTPS"
+              members:
+                - group: "cp"
+                  protocol_port: 6443
+              healthmonitor:
+                name: "https-readyz"
+                type: "HTTPS"
+                url_path: "/readyz"
+                http_method: "GET"
+                delay: 30
+                timeout: 15
+                max_retries_down: 3
+                max_retries: 4
+              listener: "apiserver"
+            - name: "controlplane-machineconfig"
+              protocol: "HTTPS"
+              members:
+                - group: "cp"
+                  protocol_port: 22623
+              healthmonitor:
+                name: "https-healthz"
+                type: "HTTPS"
+                url_path: "/healthz"
+                http_method: "GET"
+                delay: 30
+                timeout: 15
+                max_retries_down: 3
+                max_retries: 4
+              listener: "machineconfig"
+          listeners:
+            - name: "apiserver"
+              description: "Kubernetes API server."
+              protocol: "HTTPS"
+              port: 6443
+            - name: "machineconfig"
+              description: "Machine config server."
+              protocol: "HTTPS"
+              port: 22623
+        # A wildcard DNS A/AAAA or CNAME record that refers to the application ingress load balancer.
+        # The application ingress load balancer targets the machines that run the Ingress Controller pods.
+        # The Ingress Controller pods run on the compute machines by default.
+        # These records must be resolvable by both clients external to the cluster and from all the nodes within the cluster.
+        - name: "ingress"
+          description: "Kubernetes application ingress load balancer. Provides an ingress point for application traffic flowing in from outside the cluster."
+          dns: "*.apps.k8s.localdomain."
+          subnet: "PFS-OPK-MGT-SUBNET"
+          pools:
+            - name: "compute-ingress-https"
+              protocol: "HTTPS"
+              members:
+                - group: "compute"
+                  protocol_port: 443
+              healthmonitor:
+                name: "https"
+                type: "TCP"
+                delay: 30
+                timeout: 15
+                max_retries_down: 3
+                max_retries: 4
+              listener: "https-traffic"
+            - name: "compute-ingress-http"
+              protocol: "HTTP"
+              members:
+                - group: "compute"
+                  protocol_port: 80
+              healthmonitor:
+                name: "http"
+                type: "TCP"
+                delay: 30
+                timeout: 15
+                max_retries_down: 3
+                max_retries: 4
+              listener: "http-traffic"
+          listeners:
+            - name: "https-traffic"
+              description: "HTTPS traffic"
+              protocol: "HTTPS"
+              port: 443
+            - name: "http-traffic"
+              description: "HTTP traffic"
+              protocol: "HTTP"
+              port: 80
+
+      # https://registry.terraform.io/providers/terraform-provider-openstack/openstack/latest/docs/resources/networking_secgroup_rule_v2
+      k8s_network_secgroups_rulesets:
+        default-K8S:
+        - description:        "allow all to anywhere"
+          direction:          "egress"
+          ethertype:          "IPv4"
+        - description:        "allow all from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+        CP-SECGROUP:
+        - description:        "allow all to anywhere"
+          direction:          "egress"
+          ethertype:          "IPv4"
+        - description:        "allow all from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+        COMPUTE-SECGROUP:
+        - description:        "allow all to anywhere"
+          direction:          "egress"
+          ethertype:          "IPv4"
+        - description:        "allow icmp from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "icmp"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow http from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "tcp"
+          port_range_min:     "80"
+          port_range_max:     "80"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow https from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "tcp"
+          port_range_min:     "443"
+          port_range_max:     "443"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow metrics from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "tcp"
+          port_range_min:     "1936"
+          port_range_max:     "1936"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow Host level services from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "tcp"
+          port_range_min:     "9000"
+          port_range_max:     "9999"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow Kubelet API (tcp) from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "tcp"
+          port_range_min:     "10250"
+          port_range_max:     "10259"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow VXLAN from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "udp"
+          port_range_min:     "4789"
+          port_range_max:     "4789"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow Geneve from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "udp"
+          port_range_min:     "6081"
+          port_range_max:     "6081"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow Host level services from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "udp"
+          port_range_min:     "9000"
+          port_range_max:     "9999"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow IPsec IKE packets from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "udp"
+          port_range_min:     "500"
+          port_range_max:     "500"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow IPsec NAT-T packets from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "udp"
+          port_range_min:     "4500"
+          port_range_max:     "4500"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow NodePort Services (udp) from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "udp"
+          port_range_min:     "30000"
+          port_range_max:     "32767"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow NodePort Services (tcp) from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "tcp"
+          port_range_min:     "30000"
+          port_range_max:     "32767"
+          remote_ip_prefix:   "0.0.0.0/0"
+        - description:        "allow esp from anywhere"
+          direction:          "ingress"
+          ethertype:          "IPv4"
+          protocol:           "esp"
+          remote_ip_prefix:   "0.0.0.0/0"

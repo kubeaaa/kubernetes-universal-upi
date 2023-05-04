@@ -1,0 +1,15 @@
+---
+- block:
+  - name: "[Openshift] Probe bootstrap-complete with openshift-install"
+    check_mode: no
+    ansible.builtin.shell: |
+      #!/bin/bash
+      timeout 2 bash -c "openshift-install --dir=installer/ wait-for bootstrap-complete 2>&1 >/dev/null | grep -c 'It is now safe to remove the bootstrap resources'"
+      exit 0
+    args:
+      executable: /bin/bash
+    register: openshift_bootstrap_complete
+
+  - ansible.builtin.set_fact:
+      tf_vars: "{{ tf_vars | combine({'k8s_cluster_initialized': openshift_bootstrap_complete.stdout | bool}) }}"
+  when: distribution in ["okd", "ocp"]

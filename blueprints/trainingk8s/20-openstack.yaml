@@ -1,0 +1,14 @@
+all:
+  hosts:
+    localhost:
+      ##################################################################################################################(
+      # OPK Configuration
+      ##################################################################################################################(
+      # openstack api endpoint
+      openstack_address: ""
+
+      # openstack region
+      openstack_region: "CNP-HP-PFS"
+
+      # openstack project id
+      openstack_tenant_id: ""

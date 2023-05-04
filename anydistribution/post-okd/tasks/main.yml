@@ -1,0 +1,25 @@
+---
+- name: "Wait for bootstrap to complete"
+  block:
+  - name: Wait for bootstrap
+    include_tasks: 10-wait.yml
+
+  - name: Approve pending certificates
+    tags: approve-csr
+    include_tasks: 11-csr.yml
+
+  - name: Fix machine-config operator
+    include_tasks: 30-patch-machine-config-operator.yml
+
+  - name: Add OperatorHub resource
+    include_tasks: 31-add-operator-hub.yml
+
+  - name: Verify Cilium health
+    include_tasks: 90-cni-cilium.yml
+
+  - name: Cluster checkup
+    include_tasks: 98-wait-cluster-ready.yml
+
+  - name: Out-of-box experience
+    include_tasks: 99-oobe.yml
+  when: inventory_hostname == "localhost" and not ansible_check_mode

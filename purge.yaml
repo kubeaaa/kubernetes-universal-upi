@@ -1,0 +1,12 @@
+- name: Platform Destruction
+  hosts: localhost
+  gather_facts: false
+  environment: "{{ proxy_env }}"
+  vars_prompt:
+    - name: "prompt_purge"
+      prompt: "Do you want to destroy cluster (yes|no) ?"
+      private: no
+  tasks:
+    - import_role:
+        name: upi_destroy
+      when: prompt_purge | bool

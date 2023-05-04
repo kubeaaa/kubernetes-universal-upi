@@ -1,0 +1,21 @@
+---
+- name: Restart NetworkManager
+  become: yes
+  ansible.builtin.systemd:
+    state: restarted
+    name: NetworkManager.service
+  listen: "restart NetworkManager.service"
+
+- name: Restart systemd-hostnamed
+  become: yes
+  ansible.builtin.systemd:
+    state: restarted
+    name: systemd-hostnamed.service
+  listen: "restart systemd-hostnamed.service"
+
+- name: Reboot host
+  tags: reboot
+  become: yes
+  ansible.builtin.reboot:
+    reboot_timeout: 30
+  listen: "reboot"

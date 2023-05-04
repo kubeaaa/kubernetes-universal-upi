@@ -1,0 +1,52 @@
+all:
+  hosts:
+    localhost:
+      # Openshift version
+      os_version: '4.11.0-0.okd-2022-12-02-145640'
+      openshift_install_sha256: 'b73f6276820593ec791a1855af58b91ce5c80e13327e0088c8f7cf29c0861c53'
+      openshift_client_sha256: '77f27e49be8a4ecba507cf7274eb10ce8fbe1c3bac1930e4bd24e3ca7b3f0bdc'
+
+      # This pull secret allows you to authenticate with the services that are provided by the included authorities, including Quay.io, which serves the container images for OCP components.
+      os_pull_secret: ''
+
+      # The SSH public key for the core user in Fedora CoreOS (FCOS).
+      os_ssh_key: ''
+
+      # <cluster_name> is the cluster name and <base_domain> is the base domain that you specify in the install-config.yaml file. A complete DNS record takes the form: <component>.<cluster_name>.<base_domain>..
+      os_base_domain: 'k8s.localdomain'
+
+      # Subnet pool prefixes
+      #
+      # A block of IP addresses from which pod IP addresses are allocated.
+      # This block must not overlap with existing physical networks. These IP addresses are used for the pod network.
+      # If you need to access the pods from an external network, you must configure load balancers and routers to manage
+      # the traffic.
+      # clusterNetwork cidr
+      os_cluster_network_cidrs:
+        - cidr: '172.16.0.0/16'
+          hostPrefix: 23
+
+      # Name of the SDN.
+      # Possible values are OpenshiftSDN or Cilium.
+      os_networking_type: 'Cilium'
+
+      # Service subnet cidr
+      #
+      # The IP address pool to use for service IP addresses. You can enter only one IP address pool.
+      # This block must not overlap with existing physical networks. If you need to access the services from an external
+      # network, configure load balancers and routers to manage the traffic.
+      # serviceNetwork cidr
+      os_svc_subnet_range:
+        - '172.30.0.0/16'
+
+      # The IP address pools for machines.
+      #
+      # In the Machine CIDR field, you must specify the IP address range for machines or cluster nodes.
+      # The IP block address pool. The default is 10.0.0.0/16 for all platforms other than libvirt.
+      # For libvirt, the default is 192.168.126.0/24.
+      #
+      # Set the networking.machineNetwork to match the CIDR that the preferred NIC resides in.
+      #
+      # machineNetwork cidr
+      os_machine_network_cidrs:
+        - cidr: '10.206.208.0/20'

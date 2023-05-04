@@ -1,0 +1,23 @@
+---
+- name: "Creating the Kubernetes manifest and Ignition config files"
+  block:
+  - name: Check if kubeconfig exists
+    stat:
+      path: "installer/auth/kubeconfig"
+    register: kubeconfig_stat_result
+
+  - name: Install Openshift tooling
+    include_tasks: 00-tools.yml
+
+  - name: Configure install-config.yaml
+    include_tasks: 10-install-config.yml
+
+  - name: Creating assets
+    include_tasks: 50-create-manifests.yml
+
+  - name: Creating Cilium assets
+    include_tasks: 51-cni-cilium.yml
+
+  - name: Finalizing assets
+    include_tasks: 99-create-ignition.yml
+  when: inventory_hostname == "localhost"

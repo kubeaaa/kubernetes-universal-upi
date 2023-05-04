@@ -1,0 +1,36 @@
+- block:
+  - name: Backup install-config.yaml
+    ansible.builtin.copy:
+      src: "installer/install-config.yaml"
+      dest: "installer/install-config.yaml.bak"
+      mode: '0644'
+
+  - name: Creating the Kubernetes manifest
+    ansible.builtin.shell:
+      cmd: "openshift-install create manifests --dir installer/"
+
+  - name: Prevent pods from being scheduled on the control plane machines
+    ansible.builtin.lineinfile:
+      path: "installer/manifests/cluster-scheduler-02-config.yml"
+      regexp: '^  mastersSchedulable'
+      line: '  mastersSchedulable: false'
+
+  # Remove Machines and MachineSets
+  # https://github.com/noironetworks/openshift_installer/blob/master/docs/user/openstack/install_upi.md#remove-machines-and-machinesets
+  - name: Find Machines and MachineSets
+    find:
+      paths: "installer/manifests/"
+      patterns:
+        - "99_openshift-cluster-api_master-machines-.*.yaml"
+        - "99_openshift-cluster-api_worker-machineset-.*.yaml"
+      use_regex: yes
+      recurse: false
+    register: os_manifests_removal
+
+  - name: Remove Machines and MachineSets
+    check_mode: no
+    ansible.builtin.file:
+      path: "{{ item['path'] }}"
+      state: absent
+    with_items: "{{ os_manifests_removal.files }}"
+  when: not kubeconfig_stat_result.stat.exists

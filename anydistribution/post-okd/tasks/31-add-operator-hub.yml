@@ -1,0 +1,7 @@
+---
+# https://docs.okd.io/latest/operators/understanding/olm-understanding-operatorhub.html
+- name: Create OperatorHub resource
+  kubernetes.core.k8s:
+    kubeconfig: "installer/auth/kubeconfig"
+    state: present
+    definition: "{{ lookup('file', ([role_path, 'files', '99-operator-hub.yaml'] | join('/'))) | from_yaml }}"

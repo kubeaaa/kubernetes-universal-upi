@@ -1,0 +1,63 @@
+- block:
+  - name: Check if Cilium repository exists
+    stat:
+      path: "installer/cilium/.git/"
+    register: cilium_repo_result
+
+  - name: Git checkout
+    ansible.builtin.git:
+      repo: 'https://github.com/cilium/cilium-olm.git'
+      dest: 'installer/cilium'
+      version: master
+      single_branch: yes
+    when: not cilium_repo_result.stat.exists
+
+  - name: Copy default Cilium manifests
+    ansible.builtin.copy:
+      src: "installer/cilium/manifests/cilium.v{{ cni_cilium_version }}/"
+      dest: "installer/manifests/"
+
+  # https://github.com/cilium/cilium/blob/master/install/kubernetes/cilium/values.yaml
+  - name: Override CiliumConfig
+    ansible.builtin.template:
+      src: "cilium-ciliumconfig.yaml.j2"
+      dest: "installer/manifests/cluster-network-07-cilium-ciliumconfig.yaml"
+      mode: '0644'
+      force: yes
+
+  # https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
+  # https://github.com/openshift/cluster-network-operator
+  - name: Set Openshift Kubeproxy-free install
+    ansible.builtin.template:
+      src: "cluster-network-03-config.yml.j2"
+      dest: "installer/manifests/cluster-network-03-config.yml"
+      mode: '0644'
+      force: yes
+
+  # when kube-proxy is disabled, the operator needs to access the API (see https://github.com/cilium/cilium-olm/issues/48),
+  # in order to do that the only option that is currently viable is to set environment variables
+  - ansible.builtin.set_fact:
+      cilium_olm_deployment_yaml: "{{ lookup('ansible.builtin.file', 'installer/manifests/cluster-network-06-cilium-00002-cilium-olm-deployment.yaml') | from_yaml }}"
+      cilium_olm_deployment_yaml_patch: "{{ lookup('ansible.builtin.template', 'cilium-olm-deployment-patch.yaml.j2') | from_yaml }}"
+
+  - ansible.builtin.set_fact:
+      cilium_olm_deployment_yaml_containers_0_patch:
+        env: "{{ (cilium_olm_deployment_yaml.spec.template.spec.containers[0].env + cilium_olm_deployment_yaml_patch.env) | list }}"
+        name: 'operator'
+
+  - ansible.builtin.set_fact:
+      cilium_olm_deployment_yaml_containers_patch:
+        spec:
+          template:
+            spec:
+              containers: "{{ cilium_olm_deployment_yaml.spec.template.spec.containers | community.general.lists_mergeby([cilium_olm_deployment_yaml_containers_0_patch], 'name') | list }}"
+
+  - ansible.builtin.set_fact:
+      cilium_olm_deployment_yaml_final: "{{ cilium_olm_deployment_yaml | combine(cilium_olm_deployment_yaml_containers_patch, recursive=true) }}"
+
+  - name: Patch cilium-olm Deployment
+    copy:
+      dest: "installer/manifests/cluster-network-06-cilium-00002-cilium-olm-deployment.yaml"
+      content: "{{ cilium_olm_deployment_yaml_final | to_yaml }}"
+
+  when: not kubeconfig_stat_result.stat.exists and os_networking_type == "Cilium"

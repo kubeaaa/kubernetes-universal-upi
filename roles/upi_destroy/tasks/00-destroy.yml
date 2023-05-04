@@ -1,0 +1,47 @@
+---
+- name: "Destroy goal invoked for Terraform targeting workspace '{{ tf_workspace }}'"
+  community.general.terraform:
+    project_path: "anyplatform/{{ platform }}"
+    state: "absent"
+    lock: true
+    force_init: yes
+    provider_upgrade: yes
+    complex_vars: yes
+    variables: "{{ tf_vars }}"
+    workspace: "{{ tf_workspace }}"
+  environment:
+    # Proxy Setup
+    HTTP_PROXY: "{{ proxy_env['http_proxy'] }}"
+    HTTPS_PROXY: "{{ proxy_env['https_proxy'] }}"
+    # Debug Flag
+    TF_LOG: "{{ lookup('ansible.builtin.env', 'TF_LOG', errors='ignore') }}"
+    # https://developer.hashicorp.com/terraform/cli/config/environment-variables#tf_in_automation
+    TF_IN_AUTOMATION: 1
+    # https://developer.hashicorp.com/terraform/cli/config/environment-variables#tf_cli_args-and-tf_cli_args_name
+    TF_CLI_ARGS: "-no-color"
+  async: 3600
+  poll: 0
+  register: terraform_provisioning
+
+- name: 'Wait for Terraform'
+  async_status:
+    jid: "{{ terraform_provisioning.ansible_job_id }}"
+  register: tf_result
+  until: tf_result.finished
+  retries: 1800
+  delay: 2
+
+- name: "Show Terraform STDOUT"
+  debug:
+    msg: "{{ tf_result.stdout }}"
+  when: tf_result.stdout | length > 0
+
+- name: "Show Terraform STDERR"
+  debug:
+    msg: "{{ tf_result.stderr }}"
+  when: tf_result.stderr | length > 0
+
+- name: "Show Terraform Outputs"
+  debug:
+    var: tf_result.outputs
+  when: tf_result.outputs is defined and (tf_result.outputs | length > 0)

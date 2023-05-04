@@ -1,0 +1,48 @@
+- name: Count Ready compute nodes
+  environment:
+    KUBECONFIG: "installer/auth/kubeconfig"
+  ansible.builtin.shell:
+    cmd: oc get nodes --selector '!node-role.kubernetes.io/master' --output jsonpath="{range .items[?(@.status.conditions[-1].type=='Ready')]}{.metadata.name} {.status.conditions[-1].type}{'\n'}{end}" | wc -l
+  args:
+    executable: /bin/bash
+  register: csr_count_compute_ready
+
+- block:
+    - name: Wait up to 15 min for CSR/kube-apiserver-client-kubelet
+      environment:
+        KUBECONFIG: "installer/auth/kubeconfig"
+      ansible.builtin.shell:
+        cmd: "oc get csr | grep 'kube-apiserver-client-kubelet' | wc -l"
+      args:
+        executable: /bin/bash
+      until: (csr_count.stdout | int) >= ((groups['cp'] | length) + (groups['compute'] | length) * 2)
+      retries: 60
+      delay: 15
+      register: csr_count
+
+    - name: Approve pending certificates
+      include_tasks: 12-csr-approve.yml
+
+    - name: Wait up to 15 min for CSR/kubelet-serving
+      environment:
+        KUBECONFIG: "installer/auth/kubeconfig"
+      ansible.builtin.shell:
+        cmd: "oc get csr | grep 'kubelet-serving' | wc -l"
+      args:
+        executable: /bin/bash
+      until: (csr_count.stdout | int) >= ((groups['cp'] | length) + (groups['compute'] | length))
+      retries: 60
+      delay: 15
+      register: csr_count
+
+    - name: Approve pending certificates
+      include_tasks: 12-csr-approve.yml
+
+    - name: Wait all nodes to be Ready (timeout=600s)
+      environment:
+        KUBECONFIG: "installer/auth/kubeconfig"
+      ansible.builtin.shell:
+        cmd: oc wait --for=condition=Ready nodes --all --timeout=600s
+      args:
+        executable: /bin/bash
+  when: (csr_count_compute_ready.stdout | int) != (groups['compute'] | length)

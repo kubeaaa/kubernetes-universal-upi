@@ -1,0 +1,8 @@
+---
+# https://docs.openshift.com/container-platform/latest/rest_api/operator_apis/network-operator-openshift-io-v1.html
+apiVersion: operator.openshift.io/v1
+kind: Network
+metadata:
+  name: cluster
+spec:
+  deployKubeProxy: {{ cni_deploy_kubeproxy }}

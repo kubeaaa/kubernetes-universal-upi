@@ -1,0 +1,31 @@
+all:
+  hosts:
+    localhost:
+      ##################################################################################################################(
+      # K8S/CNI Configuration
+      #
+      # https://github.com/cilium/cilium/blob/1.12.2/install/kubernetes/cilium/values.yaml
+      # ref: https://docs.cilium.io/en/stable/concepts/networking/ipam/
+      ##################################################################################################################(
+      cni_cilium_version: "1.12.2"
+
+      # deployKubeProxy specifies whether or not a standalone kube-proxy should be deployed by the operator.
+      # Some network providers include kube-proxy or similar functionality.
+      # If unset, the plugin will attempt to select the correct value,
+      # which is false when OpenShift SDN and ovn-kubernetes are used and true otherwise.
+      cni_deploy_kubeproxy: false
+
+      # -- IPv4 CIDR mask size to delegate to individual nodes for IPAM.
+      cni_cilium_cluster_pool_ipv4_mask_size: "23"
+
+      # -- (string) Allows to explicitly specify the IPv4 CIDR for native routing.
+      # When specified, Cilium assumes networking for this CIDR is preconfigured and
+      # hands traffic destined for that range to the Linux network stack without
+      # applying any SNAT.
+      # Generally speaking, specifying a native routing CIDR implies that Cilium can
+      # depend on the underlying networking stack to route packets to their
+      # destination. To offer a concrete example, if Cilium is configured to use
+      # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
+      # the user must configure the routes to reach pods, either manually or by
+      # setting the auto-direct-node-routes flag.
+      cni_cilium_ipv4_native_routing_cidr: "{{ os_cluster_network_cidrs[0]['cidr'] }}"

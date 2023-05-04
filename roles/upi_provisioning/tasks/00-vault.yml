@@ -1,0 +1,20 @@
+---
+- name: Check if have a valid vault token
+  block:
+  - name:
+    ansible.builtin.shell: |
+      #!/bin/bash
+      if vault token lookup -address=${VAULT_ADDR} &> /dev/null ; then
+        exit 0
+      fi
+      echo "You are not authenticated with vault at ${VAULT_ADDR}"
+      exit 1
+    no_log: true
+    args:
+      executable: /bin/bash
+    register: vault_token_lookup
+  rescue:
+  - name: Print when errors
+    ansible.builtin.debug:
+      msg: "{{ vault_token_lookup.stdout }}"
+  - ansible.builtin.command: /bin/false

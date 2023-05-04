@@ -1,0 +1,9 @@
+- name: Approve all pending CSR
+  environment:
+    KUBECONFIG: "installer/auth/kubeconfig"
+  ansible.builtin.shell: |
+    {% raw %}
+    oc get csr -o go-template='{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' | xargs --no-run-if-empty oc adm certificate approve
+    {% endraw %}
+  args:
+    executable: /bin/bash

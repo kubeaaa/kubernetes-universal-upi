@@ -1,0 +1,25 @@
+- block:
+    - ansible.builtin.set_fact:
+        # https://regex101.com/r/DlLnH4/1
+        cilium_postinstall_healthcheck: "^Cluster health:\\s*{{ (groups['cp'] | length) + (groups['compute'] | length) }}.?{{ (groups['cp'] | length) + (groups['compute'] | length) }} reachable"
+
+    - name: Run Cilium healthcheck
+      environment:
+        KUBECONFIG: "installer/auth/kubeconfig"
+      ansible.builtin.shell: |
+        #!/bin/bash
+        kubectl exec -i $(oc get pod -n cilium | grep -v -E '(operator|olm)' | grep Running | head -n 1) -c cilium-agent -n cilium -- cilium status
+        exit 0
+      args:
+        executable: /bin/bash
+      register: cilium_postinstall
+      failed_when: cilium_postinstall.stdout is not regex(pattern=cilium_postinstall_healthcheck, multiline=true, match_type="search")
+
+    - debug:
+        msg: "{{ cilium_postinstall.stdout }}"
+      when: cilium_postinstall.stdout | length > 0
+
+    - debug:
+        msg: "{{ cilium_postinstall.stderr }}"
+      when: cilium_postinstall.stderr | length > 0
+  when: os_networking_type == "Cilium"
